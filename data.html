@@ -71,6 +71,11 @@
             font-size: 13px;
             border-bottom: 1px solid #181e26;
         }
+        .sensor-row.disconnected { opacity: 0.45; }
+        .sensor-row.disconnected .sensor-value {
+            color: #6a7078;
+            font-style: italic;
+        }
         .sensor-line {
             display: flex;
             justify-content: space-between;
@@ -373,10 +378,16 @@
                     }
                     const val = raw !== null ? raw.toFixed(2) : 'N/A';
                     const meta = getMeta(s.name, s.type);
-                    html += `<div class="sensor-row">
+                    // Fan 转速为 0 且数值有效：判定为未连接的空风扇接口
+                    const isDisconnected = s.type === 'Fan' && raw === 0;
+                    const rowCls = isDisconnected ? ' disconnected' : '';
+                    const valueHTML = isDisconnected
+                        ? '<span class="sensor-value">未连接</span>'
+                        : `<span class="sensor-value ${cls}">${val} ${unit}</span>`;
+                    html += `<div class="sensor-row${rowCls}">
                         <div class="sensor-line">
                             <span class="sensor-name">${s.name}</span>
-                            <span class="sensor-value ${cls}">${val} ${unit}</span>
+                            ${valueHTML}
                         </div>
                         <div class="sensor-cn">${meta.cn}${meta.desc ? ' · ' + meta.desc : ''}</div>
                     </div>`;
