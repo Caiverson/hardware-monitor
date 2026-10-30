@@ -149,7 +149,12 @@
                     }
                     const unit = unitMap[s.type] || '';
                     const cls = getValueClass(s);
-                    const val = s.value !== null ? s.value.toFixed(2) : 'N/A';
+                    // Throughput 原始单位为字节/秒（B/s），换算成 MB/s
+                    let raw = s.value;
+                    if (s.type === 'Throughput' && raw !== null) {
+                        raw = raw / (1024 * 1024);
+                    }
+                    const val = raw !== null ? raw.toFixed(2) : 'N/A';
                     html += `<div class="sensor-row">
                         <span class="sensor-name">${s.name}</span>
                         <span class="sensor-value ${cls}">${val} ${unit}</span>

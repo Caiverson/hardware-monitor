@@ -183,7 +183,7 @@
 
         <div class="card">
             <div class="card-title">Network 网络流量</div>
-            <div class="card-desc">单位：MB/s。蓝色线：上传速度；绿色线：下载速度。实时显示 WLAN 网络吞吐。</div>
+            <div class="card-desc">单位：MB/s（原始数据为字节/秒，已 ÷1024÷1024 换算）。蓝色线：上传速度；绿色线：下载速度。实时显示 WLAN 网络吞吐。</div>
             <div id="net-chart" class="chart"></div>
         </div>
     </div>
@@ -320,7 +320,7 @@
         var cpuLoadChart = makeDualLine('cpu-load-chart', '负载 %', '频率 MHz');
         var gpuLoadChart = makeDualLine('gpu-load-chart', '负载 %', '频率 MHz');
         var memChart = makeLine('mem-chart', 'GB');
-        var netChart = makeLine('net-chart', 'MB/s');
+                        var netChart = makeLine('net-chart', 'MB/s');
 
         function findSensor(hw, type, keyword) {
             for (var i = 0; i < hw.sensors.length; i++) {
@@ -507,9 +507,12 @@
                 if (wlan) {
                     var up = findSensor(wlan, 'Throughput', 'Upload');
                     var down = findSensor(wlan, 'Throughput', 'Download');
+                    // LibreHardwareMonitor 网络速度原始单位为字节/秒（B/s），换算成 MB/s
+                    var upMB = up !== null ? Math.round((up / (1024 * 1024)) * 100) / 100 : null;
+                    var downMB = down !== null ? Math.round((down / (1024 * 1024)) * 100) / 100 : null;
                     if (up !== null) {
-                        netUpData.push(up);
-                        netDownData.push(down);
+                        netUpData.push(upMB);
+                        netDownData.push(downMB);
                         if (netUpData.length > maxPoints) {
                             netUpData.shift();
                             netDownData.shift();
