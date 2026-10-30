@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PC Hardware Monitor - Charts</title>
+    <script src="/echarts.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            background: #0a0e14; 
+            color: #e0e0e0;
+            padding: 15px;
+        }
+        .nav {
+            max-width: 1200px;
+            margin: 0 auto 15px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        .nav a {
+            padding: 8px 20px;
+            background: #121820;
+            border: 1px solid #2a3038;
+            border-radius: 6px;
+            color: #808890;
+            text-decoration: none;
+            font-size: 13px;
+        }
+        .nav a.active {
+            background: #00d4aa;
+            color: #0a0e14;
+            border-color: #00d4aa;
+            font-weight: 600;
+        }
+        h1 { 
+            text-align: center; 
+            margin-bottom: 5px; 
+            color: #00d4aa;
+            font-size: 26px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #505860;
+            font-size: 13px;
+            margin-bottom: 15px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+            gap: 12px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .card {
+            background: #121820;
+            border-radius: 10px;
+            padding: 12px;
+            border: 1px solid #1e2630;
+        }
+        .card-title {
+            font-size: 15px;
+            color: #00d4aa;
+            padding: 0 4px 4px;
+            font-weight: 600;
+        }
+        .card-desc {
+            font-size: 11px;
+            color: #606870;
+            padding: 0 4px 8px;
+            line-height: 1.4;
+        }
+        .chart {
+            width: 100%;
+            height: 220px;
+        }
+        .gauge-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 5px;
+        }
+        .gauge-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .gauge-label {
+            font-size: 11px;
+            color: #808890;
+            text-align: center;
+            margin-top: -8px;
+            line-height: 1.3;
+        }
+        .gauge-chart {
+            width: 100%;
+            height: 150px;
+        }
+        @media (max-width: 500px) {
+            .grid { grid-template-columns: 1fr; }
+            .chart { height: 180px; }
+            .gauge-chart { height: 125px; }
+        }
+    </style>
+</head>
+<body>
+    <h1>PC Hardware Monitor</h1>
+    <div class="nav">
+        <a href="/data.html">Data View</a>
+        <a href="/charts.html" class="active">Charts View</a>
+    </div>
+    <div class="subtitle" id="clock"></div>
+    
+    <div class="grid">
+        <div class="card">
+            <div class="card-title">CPU Overview 处理器总览</div>
+            <div class="card-desc">从左到右：CPU 总负载（%）、CPU 封装温度（°C）、CPU 封装功耗（W）</div>
+            <div class="gauge-row">
+                <div class="gauge-item">
+                    <div id="cpu-load" class="gauge-chart"></div>
+                    <div class="gauge-label">CPU 总负载<br>Load %</div>
+                </div>
+                <div class="gauge-item">
+                    <div id="cpu-temp" class="gauge-chart"></div>
+                    <div class="gauge-label">CPU 封装温度<br>Temp °C</div>
+                </div>
+                <div class="gauge-item">
+                    <div id="cpu-power" class="gauge-chart"></div>
+                    <div class="gauge-label">CPU 封装功耗<br>Power W</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">GPU Overview 显卡总览</div>
+            <div class="card-desc">从左到右：GPU 核心负载（%）、GPU 核心温度（°C）、显存占用率（%）</div>
+            <div class="gauge-row">
+                <div class="gauge-item">
+                    <div id="gpu-load" class="gauge-chart"></div>
+                    <div class="gauge-label">GPU 核心负载<br>Load %</div>
+                </div>
+                <div class="gauge-item">
+                    <div id="gpu-temp" class="gauge-chart"></div>
+                    <div class="gauge-label">GPU 核心温度<br>Temp °C</div>
+                </div>
+                <div class="gauge-item">
+                    <div id="gpu-mem" class="gauge-chart"></div>
+                    <div class="gauge-label">显存占用率<br>Memory %</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">CPU Temperature 处理器温度</div>
+            <div class="card-desc">单位：°C（摄氏度）。显示 CPU 封装温度随时间变化，每 0.5 秒刷新一次，保留最近 30 个数据点。</div>
+            <div id="cpu-temp-chart" class="chart"></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">GPU Temperature 显卡温度</div>
+            <div class="card-desc">单位：°C（摄氏度）。显示 GPU 核心温度随时间变化，每 0.5 秒刷新一次，保留最近 30 个数据点。</div>
+            <div id="gpu-temp-chart" class="chart"></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">CPU Load & Clock 处理器负载与频率</div>
+            <div class="card-desc">绿色线：CPU 总负载（%）；蓝色线：CPU 核心频率（MHz）。双轴展示负载与频率的对应关系。</div>
+            <div id="cpu-load-chart" class="chart"></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">GPU Load & Clock 显卡负载与频率</div>
+            <div class="card-desc">绿色线：GPU 核心负载（%）；蓝色线：GPU 核心频率（MHz）。展示显卡负载与频率的对应关系。</div>
+            <div id="gpu-load-chart" class="chart"></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Memory Usage 内存使用</div>
+            <div class="card-desc">单位：GB。显示已用内存容量随时间变化，纵轴上限为物理内存总量。</div>
+            <div id="mem-chart" class="chart"></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Network 网络流量</div>
+            <div class="card-desc">单位：MB/s。蓝色线：上传速度；绿色线：下载速度。实时显示 WLAN 网络吞吐。</div>
+            <div id="net-chart" class="chart"></div>
+        </div>
+    </div>
+
+    <script>
+        var maxPoints = 30;
+        var timeData = [];
+        var cpuTempData = [], cpuLoadData = [], cpuClockData = [], cpuPowerData = [];
+        var gpuTempData = [], gpuLoadData = [], gpuClockData = [], gpuMemData = [];
+        var memUsedData = [];
+        var netUpData = [], netDownData = [];
+
+        function makeGauge(id, name, maxVal, unit) {
+            var chart = echarts.init(document.getElementById(id));
+            chart.setOption({
+                series: [{
+                    type: 'gauge',
+                    min: 0,
+                    max: maxVal,
+                    startAngle: 200,
+                    endAngle: -20,
+                    radius: '90%',
+                    center: ['50%', '62%'],
+                    progress: { show: true, width: 8 },
+                    axisLine: {
+                        lineStyle: {
+                            width: 8,
+                            color: [[0.6, '#6bcb77'], [0.8, '#ffd93d'], [1, '#ff6b6b']]
+                        }
+                    },
+                    axisTick: { show: false },
+                    splitLine: { show: false },
+                    axisLabel: { show: false },
+                    pointer: { show: false },
+                    title: {
+                        offsetCenter: [0, '38%'],
+                        fontSize: 10,
+                        color: '#808890'
+                    },
+                    detail: {
+                        offsetCenter: [0, '-5%'],
+                        fontSize: 16,
+                        fontWeight: 'bold',
+                        formatter: function(v) { return v + unit; },
+                        color: '#fff'
+                    },
+                    data: [{ value: 0, name: name }]
+                }]
+            });
+            return chart;
+        }
+
+        var cpuLoadGauge = makeGauge('cpu-load', 'Load 负载', 100, '%');
+        var cpuTempGauge = makeGauge('cpu-temp', 'Temp 温度', 100, '°C');
+        var cpuPowerGauge = makeGauge('cpu-power', 'Power 功耗', 150, 'W');
+        var gpuLoadGauge = makeGauge('gpu-load', 'Load 负载', 100, '%');
+        var gpuTempGauge = makeGauge('gpu-temp', 'Temp 温度', 100, '°C');
+        var gpuMemGauge = makeGauge('gpu-mem', 'Mem 显存', 100, '%');
+
+        function makeLine(id, yName) {
+            var chart = echarts.init(document.getElementById(id));
+            chart.setOption({
+                backgroundColor: 'transparent',
+                grid: { left: 50, right: 15, top: 28, bottom: 20 },
+                tooltip: { trigger: 'axis' },
+                legend: {
+                    top: 0,
+                    right: 5,
+                    textStyle: { fontSize: 10 },
+                    itemWidth: 10,
+                    itemHeight: 6
+                },
+                xAxis: {
+                    type: 'category',
+                    data: [],
+                    axisLabel: { fontSize: 9, color: '#505860' }
+                },
+                yAxis: {
+                    type: 'value',
+                    name: yName,
+                    nameTextStyle: { fontSize: 10 },
+                    axisLabel: { fontSize: 9, color: '#505860' },
+                    splitLine: { lineStyle: { color: '#1a2028' } }
+                },
+                series: []
+            });
+            return chart;
+        }
+
+        function makeDualLine(id, leftName, rightName) {
+            var chart = echarts.init(document.getElementById(id));
+            chart.setOption({
+                backgroundColor: 'transparent',
+                grid: { left: 45, right: 50, top: 28, bottom: 20 },
+                tooltip: { trigger: 'axis' },
+                legend: {
+                    top: 0,
+                    right: 5,
+                    textStyle: { fontSize: 10 },
+                    itemWidth: 10,
+                    itemHeight: 6
+                },
+                xAxis: {
+                    type: 'category',
+                    data: [],
+                    axisLabel: { fontSize: 9, color: '#505860' }
+                },
+                yAxis: [
+                    {
+                        type: 'value',
+                        name: leftName,
+                        min: 0,
+                        max: 100,
+                        nameTextStyle: { fontSize: 10, color: '#4d96ff' },
+                        axisLabel: { fontSize: 9, color: '#4d96ff' },
+                        splitLine: { lineStyle: { color: '#1a2028' } }
+                    },
+                    {
+                        type: 'value',
+                        name: rightName,
+                        min: 0,
+                        nameTextStyle: { fontSize: 10, color: '#00d4aa' },
+                        axisLabel: { fontSize: 9, color: '#00d4aa' },
+                        splitLine: { show: false }
+                    }
+                ],
+                series: []
+            });
+            return chart;
+        }
+
+        var cpuTempChart = makeLine('cpu-temp-chart', '°C');
+        var gpuTempChart = makeLine('gpu-temp-chart', '°C');
+        var cpuLoadChart = makeDualLine('cpu-load-chart', '负载 %', '频率 MHz');
+        var gpuLoadChart = makeDualLine('gpu-load-chart', '负载 %', '频率 MHz');
+        var memChart = makeLine('mem-chart', 'GB');
+        var netChart = makeLine('net-chart', 'MB/s');
+
+        function findSensor(hw, type, keyword) {
+            for (var i = 0; i < hw.sensors.length; i++) {
+                var s = hw.sensors[i];
+                if (s.type === type && s.name.toLowerCase().indexOf(keyword.toLowerCase()) >= 0) {
+                    return s.value;
+                }
+            }
+            return null;
+        }
+
+        function update() {
+            fetch('/api/data').then(function(r) { return r.json(); }).then(function(data) {
+                var now = new Date();
+                var t = now.toLocaleTimeString('zh-CN', {hour12: false});
+                timeData.push(t);
+                if (timeData.length > maxPoints) timeData.shift();
+
+                var cpu = null, gpu = null, mem = null, wlan = null;
+                for (var i = 0; i < data.length; i++) {
+                    if (data[i].type === 'Cpu') cpu = data[i];
+                    if (data[i].type === 'GpuAmd') gpu = data[i];
+                    if (data[i].name === 'Total Memory') mem = data[i];
+                    if (data[i].name === 'WLAN 2') wlan = data[i];
+                }
+
+                if (cpu) {
+                    var load = findSensor(cpu, 'Load', 'Total');
+                    var temp = findSensor(cpu, 'Temperature', 'CPU Package');
+                    var power = findSensor(cpu, 'Power', 'CPU Package');
+                    var clock = findSensor(cpu, 'Clock', 'Core #1');
+
+                    if (load !== null) {
+                        cpuLoadGauge.setOption({series: [{data: [{value: load}]}]});
+                        cpuLoadData.push(load);
+                        if (cpuLoadData.length > maxPoints) cpuLoadData.shift();
+                    }
+                    if (temp !== null) {
+                        cpuTempGauge.setOption({series: [{data: [{value: temp}]}]});
+                        cpuTempData.push(temp);
+                        if (cpuTempData.length > maxPoints) cpuTempData.shift();
+                    }
+                    if (power !== null) {
+                        cpuPowerGauge.setOption({series: [{data: [{value: power}]}]});
+                        cpuPowerData.push(power);
+                        if (cpuPowerData.length > maxPoints) cpuPowerData.shift();
+                    }
+                    if (clock !== null) {
+                        cpuClockData.push(clock);
+                        if (cpuClockData.length > maxPoints) cpuClockData.shift();
+                    }
+
+                    cpuTempChart.setOption({
+                        xAxis: { data: timeData },
+                        series: [{
+                            name: 'CPU Package 封装温度',
+                            type: 'line',
+                            smooth: true,
+                            showSymbol: false,
+                            lineStyle: { width: 2, color: '#ff6b6b' },
+                            areaStyle: { color: 'rgba(255,107,107,0.1)' },
+                            data: cpuTempData
+                        }]
+                    });
+
+                    cpuLoadChart.setOption({
+                        xAxis: { data: timeData },
+                        series: [
+                            {
+                                name: 'Load 负载 %',
+                                type: 'line',
+                                yAxisIndex: 0,
+                                smooth: true,
+                                showSymbol: false,
+                                lineStyle: { width: 2, color: '#4d96ff' },
+                                areaStyle: { color: 'rgba(77,150,255,0.1)' },
+                                data: cpuLoadData
+                            },
+                            {
+                                name: 'Clock 频率 MHz',
+                                type: 'line',
+                                yAxisIndex: 1,
+                                smooth: true,
+                                showSymbol: false,
+                                lineStyle: { width: 2, color: '#00d4aa' },
+                                data: cpuClockData
+                            }
+                        ]
+                    });
+                }
+
+                if (gpu) {
+                    var gload = findSensor(gpu, 'Load', 'GPU Core');
+                    var gtemp = findSensor(gpu, 'Temperature', 'GPU Core');
+                    var gmemUsed = findSensor(gpu, 'SmallData', 'GPU Memory Used');
+                    var gmemTotal = findSensor(gpu, 'SmallData', 'GPU Memory Total');
+                    var gmem = null;
+                    if (gmemUsed !== null && gmemTotal !== null && gmemTotal > 0) {
+                        gmem = Math.round((gmemUsed / gmemTotal) * 1000) / 10;
+                    }
+                    var gclock = findSensor(gpu, 'Clock', 'GPU Core');
+
+                    if (gload !== null) {
+                        gpuLoadGauge.setOption({series: [{data: [{value: gload}]}]});
+                        gpuLoadData.push(gload);
+                        if (gpuLoadData.length > maxPoints) gpuLoadData.shift();
+                    }
+                    if (gtemp !== null) {
+                        gpuTempGauge.setOption({series: [{data: [{value: gtemp}]}]});
+                        gpuTempData.push(gtemp);
+                        if (gpuTempData.length > maxPoints) gpuTempData.shift();
+                    }
+                    if (gmem !== null) {
+                        gpuMemGauge.setOption({series: [{data: [{value: gmem}]}]});
+                        gpuMemData.push(gmem);
+                        if (gpuMemData.length > maxPoints) gpuMemData.shift();
+                    }
+                    if (gclock !== null) {
+                        gpuClockData.push(gclock);
+                        if (gpuClockData.length > maxPoints) gpuClockData.shift();
+                    }
+
+                    gpuTempChart.setOption({
+                        xAxis: { data: timeData },
+                        series: [{
+                            name: 'GPU Core 核心温度',
+                            type: 'line',
+                            smooth: true,
+                            showSymbol: false,
+                            lineStyle: { width: 2, color: '#ff6b6b' },
+                            areaStyle: { color: 'rgba(255,107,107,0.1)' },
+                            data: gpuTempData
+                        }]
+                    });
+
+                    gpuLoadChart.setOption({
+                        xAxis: { data: timeData },
+                        series: [
+                            {
+                                name: 'Core Load 负载 %',
+                                type: 'line',
+                                yAxisIndex: 0,
+                                smooth: true,
+                                showSymbol: false,
+                                lineStyle: { width: 2, color: '#4d96ff' },
+                                areaStyle: { color: 'rgba(77,150,255,0.1)' },
+                                data: gpuLoadData
+                            },
+                            {
+                                name: 'Core Clock 频率 MHz',
+                                type: 'line',
+                                yAxisIndex: 1,
+                                smooth: true,
+                                showSymbol: false,
+                                lineStyle: { width: 2, color: '#00d4aa' },
+                                data: gpuClockData
+                            }
+                        ]
+                    });
+                }
+
+                if (mem) {
+                    var used = findSensor(mem, 'Data', 'Used');
+                    var avail = findSensor(mem, 'Data', 'Available');
+                    if (used !== null) {
+                        memUsedData.push(used);
+                        if (memUsedData.length > maxPoints) memUsedData.shift();
+                        memChart.setOption({
+                            xAxis: { data: timeData },
+                            yAxis: { max: Math.ceil(used + (avail || 0)) },
+                            series: [{
+                                name: 'Used 已用 GB',
+                                type: 'line',
+                                smooth: true,
+                                showSymbol: false,
+                                lineStyle: { width: 2, color: '#9b59b6' },
+                                areaStyle: { color: 'rgba(155,89,182,0.15)' },
+                                data: memUsedData
+                            }]
+                        });
+                    }
+                }
+
+                if (wlan) {
+                    var up = findSensor(wlan, 'Throughput', 'Upload');
+                    var down = findSensor(wlan, 'Throughput', 'Download');
+                    if (up !== null) {
+                        netUpData.push(up);
+                        netDownData.push(down);
+                        if (netUpData.length > maxPoints) {
+                            netUpData.shift();
+                            netDownData.shift();
+                        }
+                        netChart.setOption({
+                            xAxis: { data: timeData },
+                            series: [
+                                {
+                                    name: 'Upload 上传',
+                                    type: 'line',
+                                    smooth: true,
+                                    showSymbol: false,
+                                    lineStyle: { width: 2, color: '#4d96ff' },
+                                    areaStyle: { color: 'rgba(77,150,255,0.1)' },
+                                    data: netUpData
+                                },
+                                {
+                                    name: 'Download 下载',
+                                    type: 'line',
+                                    smooth: true,
+                                    showSymbol: false,
+                                    lineStyle: { width: 2, color: '#00d4aa' },
+                                    areaStyle: { color: 'rgba(0,212,170,0.1)' },
+                                    data: netDownData
+                                }
+                            ]
+                        });
+                    }
+                }
+            });
+        }
+
+        function updateClock() {
+            document.getElementById('clock').textContent = new Date().toLocaleString('zh-CN');
+        }
+
+        updateClock();
+        update();
+        setInterval(updateClock, 1000);
+        setInterval(update, 500);
+
+        window.addEventListener('resize', function() {
+            [cpuLoadGauge, cpuTempGauge, cpuPowerGauge, gpuLoadGauge, gpuTempGauge, gpuMemGauge,
+             cpuTempChart, gpuTempChart, cpuLoadChart, gpuLoadChart, memChart, netChart].forEach(function(c) {
+                c.resize();
+            });
+        });
+    </script>
+</body>
+</html>

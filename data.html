@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PC Hardware Monitor - Data</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            background: #0a0e14; 
+            color: #e0e0e0;
+            padding: 15px;
+        }
+        .nav {
+            max-width: 1200px;
+            margin: 0 auto 15px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        .nav a {
+            padding: 8px 20px;
+            background: #121820;
+            border: 1px solid #2a3038;
+            border-radius: 6px;
+            color: #808890;
+            text-decoration: none;
+            font-size: 13px;
+        }
+        .nav a.active {
+            background: #00d4aa;
+            color: #0a0e14;
+            border-color: #00d4aa;
+            font-weight: 600;
+        }
+        h1 { 
+            text-align: center; 
+            margin-bottom: 5px; 
+            color: #00d4aa;
+            font-size: 26px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #505860;
+            font-size: 13px;
+            margin-bottom: 15px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+            gap: 12px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .card {
+            background: #121820;
+            border-radius: 10px;
+            padding: 15px;
+            border: 1px solid #1e2630;
+        }
+        .card-title {
+            font-size: 16px;
+            margin-bottom: 12px;
+            color: #00d4aa;
+            border-bottom: 1px solid #1e2630;
+            padding-bottom: 8px;
+        }
+        .sensor-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            font-size: 13px;
+            border-bottom: 1px solid #181e26;
+        }
+        .sensor-name { color: #9098a0; }
+        .sensor-value { 
+            font-family: 'Consolas', monospace; 
+            font-weight: 600;
+            color: #6bcb77;
+        }
+        .sensor-value.warn { color: #ffd93d; }
+        .sensor-value.crit { color: #ff6b6b; }
+        .group-label {
+            font-size: 11px;
+            color: #505860;
+            text-transform: uppercase;
+            margin: 10px 0 5px;
+            letter-spacing: 1px;
+        }
+        @media (max-width: 500px) {
+            .grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <a href="/data.html" class="active">Data View</a>
+        <a href="/charts.html">Charts View</a>
+    </div>
+    <h1>PC Hardware Monitor</h1>
+    <div class="subtitle" id="clock"></div>
+    <div class="grid" id="grid"></div>
+
+    <script>
+        const unitMap = {
+            'Temperature': '°C',
+            'Load': '%',
+            'Clock': 'MHz',
+            'Power': 'W',
+            'Data': 'GB',
+            'SmallData': 'MB',
+            'Throughput': 'MB/s',
+            'Control': '%',
+            'Voltage': 'V',
+            'Fan': 'RPM',
+            'Level': '%',
+            'Factor': 'x'
+        };
+
+        function getValueClass(sensor) {
+            const v = sensor.value;
+            if (sensor.type === 'Temperature') {
+                if (v >= 85) return 'crit';
+                if (v >= 70) return 'warn';
+            }
+            if (sensor.type === 'Load') {
+                if (v >= 90) return 'crit';
+                if (v >= 70) return 'warn';
+            }
+            return '';
+        }
+
+        function render(data) {
+            const grid = document.getElementById('grid');
+            grid.innerHTML = '';
+            
+            data.forEach(hw => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                
+                let html = `<div class="card-title">${hw.name} <span style="font-size:12px;color:#505860">[${hw.type}]</span></div>`;
+                
+                let lastType = '';
+                hw.sensors.forEach(s => {
+                    if (s.type !== lastType) {
+                        html += `<div class="group-label">${s.type}</div>`;
+                        lastType = s.type;
+                    }
+                    const unit = unitMap[s.type] || '';
+                    const cls = getValueClass(s);
+                    const val = s.value !== null ? s.value.toFixed(2) : 'N/A';
+                    html += `<div class="sensor-row">
+                        <span class="sensor-name">${s.name}</span>
+                        <span class="sensor-value ${cls}">${val} ${unit}</span>
+                    </div>`;
+                });
+                
+                card.innerHTML = html;
+                grid.appendChild(card);
+            });
+        }
+
+        function update() {
+            fetch('/api/data').then(r => r.json()).then(render);
+            document.getElementById('clock').textContent = new Date().toLocaleString('zh-CN');
+        }
+
+        update();
+        setInterval(update, 500);
+    </script>
+</body>
+</html>
