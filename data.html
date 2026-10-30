@@ -67,24 +67,35 @@
             padding-bottom: 8px;
         }
         .sensor-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 5px 0;
+            padding: 6px 0;
             font-size: 13px;
             border-bottom: 1px solid #181e26;
         }
+        .sensor-line {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 8px;
+        }
         .sensor-name { color: #9098a0; }
-        .sensor-value { 
-            font-family: 'Consolas', monospace; 
+        .sensor-cn { color: #c8d0d8; font-size: 12px; }
+        .sensor-desc {
+            color: #5a626c;
+            font-size: 11px;
+            margin-top: 2px;
+            line-height: 1.35;
+        }
+        .sensor-value {
+            font-family: 'Consolas', monospace;
             font-weight: 600;
             color: #6bcb77;
+            white-space: nowrap;
         }
         .sensor-value.warn { color: #ffd93d; }
         .sensor-value.crit { color: #ff6b6b; }
         .group-label {
             font-size: 11px;
-            color: #505860;
-            text-transform: uppercase;
+            color: #708090;
             margin: 10px 0 5px;
             letter-spacing: 1px;
         }
@@ -118,6 +129,211 @@
             'Factor': 'x'
         };
 
+        // 传感器类型中文映射
+        const typeCN = {
+            'Temperature': '温度',
+            'Load': '负载',
+            'Clock': '时钟频率',
+            'Power': '功耗',
+            'Data': '数据量',
+            'SmallData': '显存/内存容量',
+            'Throughput': '吞吐量/速率',
+            'Control': '风扇控制',
+            'Voltage': '电压',
+            'Fan': '风扇转速',
+            'Level': '健康度/寿命',
+            'Factor': '计数/系数',
+            'Timing': '内存时序'
+        };
+
+        // 传感器名称 → {中文名, 解释}
+        const nameMeta = {
+            // Clock 时钟频率
+            'Bus Speed': ['总线速度', '主板基础时钟(BCLK)频率，CPU 外频基准'],
+            'GPU Core': ['GPU 核心', '显卡核心(GPU)实时运行频率'],
+            'GPU Memory': ['GPU 显存', '显卡显存实时运行频率'],
+            // Data 数据量
+            'Capacity': ['容量', '存储设备的总容量'],
+            'Data Downloaded': ['已下载数据', '自监控启动以来累计下载的数据量'],
+            'Data Read': ['已读取数据', '磁盘累计读取的数据量'],
+            'Data Uploaded': ['已上传数据', '自监控启动以来累计上传的数据量'],
+            'Data Written': ['已写入数据', '磁盘累计写入的数据量'],
+            'Free Space': ['可用空间', '存储设备剩余未使用空间'],
+            'Memory Available': ['可用内存', '当前系统空闲可用的物理内存'],
+            'Memory Used': ['已用内存', '当前系统已占用的物理内存'],
+            'Total Space': ['总空间', '存储分区的总空间大小'],
+            // Factor 计数
+            'Fullscreen FPS': ['全屏帧率', '全屏模式下每秒渲染的帧数'],
+            'Power On Count': ['通电次数', '设备累计通电开机的次数'],
+            'Power On Hours': ['通电时长', '设备累计通电运行的小时数'],
+            // Level 健康度/寿命
+            'Available Spare': ['备用块余量', 'SSD 剩余可用的备用预留块比例，越低越危险'],
+            'Available Spare Threshold': ['备用块阈值', '备用块余量的警告门限，低于此值需更换硬盘'],
+            'Life': ['剩余寿命', 'SSD 剩余可用寿命百分比'],
+            'Percentage Used': ['寿命已用比例', 'SSD 磨损/寿命消耗的百分比'],
+            // Load 负载
+            'CPU Core Max': ['CPU 最大核心负载', '所有核心中负载最高核心的占用率'],
+            'CPU Total': ['CPU 总负载', '处理器整体的平均占用率'],
+            'D3D 3D': ['3D 图形引擎', 'GPU 3D 图形渲染单元的占用率'],
+            'D3D Compute 0': ['计算单元 0', 'GPU 通用计算(GPGPU)单元占用'],
+            'D3D Compute 1': ['计算单元 1', 'GPU 通用计算单元占用'],
+            'D3D Compute 3': ['计算单元 3', 'GPU 通用计算单元占用'],
+            'D3D Copy': ['复制引擎', 'GPU 数据复制/搬运单元占用'],
+            'D3D High Priority 3D': ['高优先级 3D', '高优先级图形渲染单元占用'],
+            'D3D High Priority Compute': ['高优先级计算', '高优先级通用计算单元占用'],
+            'D3D Security 1': ['安全单元', 'GPU 安全/加密处理单元占用'],
+            'D3D Timer 0': ['计时器单元', 'GPU 命令计时器单元占用'],
+            'D3D True Audio 0': ['真音频单元 0', 'GPU 音频加速处理单元占用'],
+            'D3D True Audio 1': ['真音频单元 1', 'GPU 音频加速处理单元占用'],
+            'D3D Video Codec 0': ['视频编解码单元', 'GPU 视频编码/解码单元占用'],
+            'D3D Video Decode 1': ['视频解码单元', 'GPU 视频解码单元占用'],
+            'D3D Video JPEG 0': ['JPEG 视频单元', 'GPU JPEG 图像编解码单元占用'],
+            'Memory': ['内存负载', '物理内存的整体占用率'],
+            'Network Utilization': ['网络利用率', '网卡当前带宽占用百分比'],
+            'Read Activity': ['读取活动', '磁盘读取操作的占用率'],
+            'Total Activity': ['总活动', '磁盘读写整体占用率'],
+            'Used Space': ['已用空间', '存储空间已使用的比例'],
+            'Write Activity': ['写入活动', '磁盘写入操作的占用率'],
+            // Power 功耗
+            'CPU Cores': ['CPU 核心功耗', '各计算核心部分的耗电量'],
+            'CPU Memory': ['CPU 内存控制器功耗', '处理器内存控制器部分耗电'],
+            'CPU Package': ['CPU 封装总功耗', '整个处理器(含核显等)的总耗电'],
+            'CPU Platform': ['CPU 平台功耗', '平台相关(非核心)部分耗电'],
+            'GPU Package': ['GPU 封装总功耗', '显卡整体的总耗电量'],
+            // SmallData 显存/内存
+            'D3D Dedicated Memory Free': ['专用显存空闲', '独立显存当前空闲容量'],
+            'D3D Dedicated Memory Total': ['专用显存总量', '独立显存的总容量'],
+            'D3D Dedicated Memory Used': ['专用显存已用', '独立显存当前已占用容量'],
+            'D3D Shared Memory Free': ['共享内存空闲', '可借用系统内存的空闲容量'],
+            'D3D Shared Memory Total': ['共享内存总量', '可借用系统内存的总容量'],
+            'D3D Shared Memory Used': ['共享内存已用', '已借用的系统内存容量'],
+            'GPU Memory Free': ['显存空闲', '显卡显存当前空闲容量'],
+            'GPU Memory Total': ['显存总量', '显卡显存的总容量'],
+            'GPU Memory Used': ['显存已用', '显卡显存当前已占用容量'],
+            // Temperature 温度
+            'CPU Package': ['CPU 封装温度', '处理器整体的代表温度'],
+            'Composite Temperature': ['综合温度', '传感器综合计算的温度值'],
+            'Core Average': ['核心平均温度', '所有 CPU 核心的平均温度'],
+            'Core Max': ['核心最高温度', '所有 CPU 核心中的最高温度'],
+            'Critical Temperature': ['临界温度', '达到此温度将触发强制保护'],
+            'GPU Hot Spot': ['GPU 热点温度', '显卡内部传感器测得的最高温度'],
+            'GPU VR VDDC': ['GPU 供电温度', '显卡核心供电(VDDC)区域温度'],
+            'Temperature #1': ['温度传感器 1', '通用温度传感器读数'],
+            'Temperature #2': ['温度传感器 2', '通用温度传感器读数'],
+            'Temperature Sensor Resolution': ['温度传感器分辨率', '该温度传感器的最小测量精度'],
+            'Thermal Sensor Critical High Limit': ['临界高温限', '触发紧急保护的温度上限'],
+            'Thermal Sensor Critical Low Limit': ['临界低温限', '触发异常保护的温度下限'],
+            'Thermal Sensor High Limit': ['高温限', '正常工作范围的温度上限'],
+            'Thermal Sensor Low Limit': ['低温限', '正常工作范围的温度下限'],
+            'Warning Temperature': ['警告温度', '达到此温度会发出过热警告'],
+            // Throughput 速率
+            'Download Speed': ['下载速度', '网卡实时下载速率(MB/s)'],
+            'Read Rate': ['读取速率', '磁盘实时读取速度(MB/s)'],
+            'Upload Speed': ['上传速度', '网卡实时上传速率(MB/s)'],
+            'Write Rate': ['写入速率', '磁盘实时写入速度(MB/s)'],
+            // Timing 内存时序
+            'tAA (CAS Latency Time)': ['tAA 行地址访问时间', 'CAS 延迟，内存列地址到数据输出的时间'],
+            'tCKAVGmax (Maximum Cycle Time)': ['平均时钟周期上限', '内存平均时钟周期的最大允许值'],
+            'tCKAVGmin (Minimum Cycle Time)': ['平均时钟周期下限', '内存平均时钟周期的最小允许值'],
+            'tRAS (Active to Precharge Delay Time)': ['tRAS 行有效时间', '行激活到预充电之间的最短时间'],
+            'tRC (Active to Active/Refresh Delay Time)': ['tRC 行循环时间', '同一行两次激活之间的时间'],
+            'tRCD (RAS to CAS Delay Time)': ['tRCD 行到列延迟', '行地址选通到列地址选通的延迟'],
+            'tRFC1 (Normal Refresh Recovery Time)': ['tRFC1 刷新恢复时间', '常规刷新命令所需的恢复时间'],
+            'tRFC1_dlr (Normal Refresh Recovery Time 3DS)': ['tRFC1 3DS 刷新恢复', '3DS 内存常规刷新恢复时间'],
+            'tRFC2 (Fine Granularity Refresh Recovery Time)': ['tRFC2 细粒度刷新恢复', '细粒度刷新命令所需恢复时间'],
+            'tRFC2_dlr (Fine Granularity Refresh Recovery Time 3DS)': ['tRFC2 3DS 刷新恢复', '3DS 内存细粒度刷新恢复时间'],
+            'tRFCsb (Same Bank Refresh Recovery Time)': ['同 Bank 刷新恢复', '同一内存 Bank 刷新所需恢复时间'],
+            'tRFCsb_dlr (Same Bank Refresh Recovery Time 3DS)': ['同 Bank 3DS 刷新恢复', '3DS 内存同 Bank 刷新恢复时间'],
+            'tRP (Row Precharge Delay Time)': ['tRP 行预充电时间', '行预充电命令所需的时间'],
+            'tWR (Write Recovery Time)': ['tWR 写恢复时间', '写入操作到预充电之间的时间'],
+            // Voltage 电压
+            'CPU Core': ['CPU 核心电压', 'CPU 核心的供电电压(Vcore)'],
+            'GPU Core': ['GPU 核心电压', '显卡核心的供电电压'],
+            'Nuvoton NCT6687D - +12V': ['+12V 供电', '主板 12V 电源轨电压'],
+            'Nuvoton NCT6687D - +5V': ['+5V 供电', '主板 5V 电源轨电压'],
+            'Nuvoton NCT6687D - AVCC3': ['+3.3V 供电', '主板 3.3V 电源轨电压'],
+            'Nuvoton NCT6687D - AVSB': ['待机 5V 电压', '关机状态下保持的 5VSB 待机电压'],
+            'Nuvoton NCT6687D - CMOS Battery': ['主板电池电压', 'CMOS 纽扣电池(CR2032)电压'],
+            'Nuvoton NCT6687D - CPU I/O': ['CPU I/O 电压', 'CPU 输入输出模块供电电压'],
+            'Nuvoton NCT6687D - CPU System Agent': ['系统代理电压', 'CPU 系统代理(SA)模块供电'],
+            'Nuvoton NCT6687D - CPU Termination': ['CPU 终端电压', '内存总线终端匹配供电电压'],
+            'Nuvoton NCT6687D - DIMM': ['内存电压', '内存条(DIMM)的供电电压'],
+            'Nuvoton NCT6687D - VRef': ['参考电压', '内存信号参考(VRef)电压'],
+            'Nuvoton NCT6687D - VSB': ['待机电压', '主板待机电源轨电压'],
+            'Nuvoton NCT6687D - Vcore': ['核心供电电压', '主板检测到的 CPU 核心供电电压'],
+            'Nuvoton NCT6687D - Voltage #1': ['电压通道 1', '主板监控芯片的通用电压通道'],
+            'Nuvoton NCT6687D - Voltage #2': ['电压通道 2', '主板监控芯片的通用电压通道']
+        };
+
+        // 带编号/前缀的传感器名动态解析（返回 {cn, desc}）
+        function getMeta(name, type) {
+            if (nameMeta[name]) {
+                return { cn: nameMeta[name][0], desc: nameMeta[name][1] };
+            }
+            let m;
+            // CPU Core #N（温度/时钟/电压）
+            m = name.match(/^CPU Core #(\d+)$/);
+            if (m) {
+                if (type === 'Temperature') return { cn: `CPU 第${m[1]}核温度`, desc: '该物理核心的实时温度' };
+                if (type === 'Clock') return { cn: `CPU 第${m[1]}核频率`, desc: '该核心的实时运行频率' };
+                if (type === 'Voltage') return { cn: `CPU 第${m[1]}核电压`, desc: '该核心的供电电压' };
+            }
+            // CPU Core #N Thread #M（负载）
+            m = name.match(/^CPU Core #(\d+) Thread #(\d+)$/);
+            if (m) return { cn: `CPU 第${m[1]}核 线程${m[2]}`, desc: '该逻辑线程的实时占用率' };
+            // CPU Core #N Distance to TjMax
+            m = name.match(/^CPU Core #(\d+) Distance to TjMax$/);
+            if (m) return { cn: `第${m[1]}核距结温上限余量`, desc: '距离最高允许温度(TjMax)还差多少度' };
+            // DIMM #N
+            m = name.match(/^DIMM #(\d+)$/);
+            if (m) return { cn: `内存条 ${m[1]} 温度`, desc: '该内存条插槽上内存的温度' };
+            // Nuvoton 主板监控芯片前缀
+            m = name.match(/^Nuvoton NCT6687D - (.+)$/);
+            if (m) {
+                const sub = m[1];
+                const map = {
+                    'CPU': ['CPU 温度', '主板芯片检测到的 CPU 温度'],
+                    'CPU Socket': ['CPU 插座温度', 'CPU 插槽附近的温度'],
+                    'M2 #1': ['M.2 插槽温度', 'M.2 固态硬盘附近的温度'],
+                    'PCH': ['芯片组(PCH)温度', '主板芯片组(南桥)的温度'],
+                    'PCIe x1': ['PCIe 插槽温度', 'PCIe 扩展槽附近的温度'],
+                    'System': ['系统温度', '主板整体环境温度'],
+                    'VRM MOS': ['供电 MOS 管温度', 'CPU 供电模块场效应管的温度'],
+                    'CPU Fan': ['CPU 风扇', 'CPU 散热器风扇'],
+                    'Pump Fan': ['水泵', '水冷泵/泵风扇接口'],
+                    'System Fan #1': ['系统风扇 1', '机箱风扇 1'],
+                    'System Fan #2': ['系统风扇 2', '机箱风扇 2'],
+                    'System Fan #3': ['系统风扇 3', '机箱风扇 3'],
+                    'System Fan #4': ['系统风扇 4', '机箱风扇 4'],
+                    'System Fan #5': ['系统风扇 5', '机箱风扇 5'],
+                    'System Fan #6': ['系统风扇 6', '机箱风扇 6']
+                };
+                if (map[sub]) {
+                    const cn = map[sub][0];
+                    if (type === 'Control') return { cn, desc: map[sub][1] + '的控制百分比' };
+                    if (type === 'Fan') return { cn, desc: map[sub][1] + '的实时转速' };
+                    return { cn, desc: map[sub][1] };
+                }
+                return { cn: sub, desc: '主板监控芯片(Nuvoton)检测项' };
+            }
+            // D3D 前缀（GPU 引擎）
+            m = name.match(/^D3D (.+)$/);
+            if (m) return { cn: `GPU ${m[1]}`, desc: '显卡对应功能单元的占用率' };
+            // GPU 专属
+            if (name === 'GPU Fan') {
+                if (type === 'Control') return { cn: '显卡风扇控制', desc: '显卡风扇 PWM 控制百分比' };
+                return { cn: '显卡风扇转速', desc: '显卡风扇实时转速(RPM)' };
+            }
+            if (name === 'GPU Core') return { cn: 'GPU 核心', desc: '显卡核心的实时指标' };
+            if (name === 'GPU Memory') return { cn: 'GPU 显存', desc: '显卡显存的实时指标' };
+            if (name === 'GPU SoC') {
+                if (type === 'Voltage') return { cn: '显卡 SoC 电压', desc: '显卡系统级芯片域供电电压' };
+                return { cn: '显卡 SoC 频率', desc: '显卡系统级芯片域的运行频率' };
+            }
+            // 兜底
+            return { cn: name, desc: '' };
+        }
+
         function getValueClass(sensor) {
             const v = sensor.value;
             if (sensor.type === 'Temperature') {
@@ -144,7 +360,8 @@
                 let lastType = '';
                 hw.sensors.forEach(s => {
                     if (s.type !== lastType) {
-                        html += `<div class="group-label">${s.type}</div>`;
+                        const tcn = typeCN[s.type] || '';
+                        html += `<div class="group-label">${s.type} ${tcn ? '· ' + tcn : ''}</div>`;
                         lastType = s.type;
                     }
                     const unit = unitMap[s.type] || '';
@@ -155,9 +372,13 @@
                         raw = raw / (1024 * 1024);
                     }
                     const val = raw !== null ? raw.toFixed(2) : 'N/A';
+                    const meta = getMeta(s.name, s.type);
                     html += `<div class="sensor-row">
-                        <span class="sensor-name">${s.name}</span>
-                        <span class="sensor-value ${cls}">${val} ${unit}</span>
+                        <div class="sensor-line">
+                            <span class="sensor-name">${s.name}</span>
+                            <span class="sensor-value ${cls}">${val} ${unit}</span>
+                        </div>
+                        <div class="sensor-cn">${meta.cn}${meta.desc ? ' · ' + meta.desc : ''}</div>
                     </div>`;
                 });
                 
